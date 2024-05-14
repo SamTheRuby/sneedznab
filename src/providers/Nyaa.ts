@@ -84,9 +84,13 @@ export class Nyaa implements IProvider {
     const sourceRegex = /\b(?:BD(?:-?rip)?|BluRay|WEB(?:-?rip)?|HDTV(?:-?WEB)?|DVD(?:-?rip)?|JPBD|USBD|ITABD|R1\s?DVD|R2\s?DVD|R2J|R1J)\b/i;
     const versionRegex = /\bv[0-4]\b/i;
 
-    let formattedTitle = `${originalTitle.match(showNameRegex)?.[1] || ''}.${originalTitle.match(seasonRegex)?.[0] || ''}.${originalTitle.match(resolutionRegex)?.[0] || ''}.${originalTitle.match(sourceRegex)?.[0] || ''}.${originalTitle.match(versionRegex)?.[0] || ''}`;
+    const showName = originalTitle.match(showNameRegex)?.[1] || '';
+    const season = originalTitle.match(seasonRegex)?.[0] || '';
+    const resolution = originalTitle.match(resolutionRegex)?.[0] || '';
+    const source = originalTitle.match(sourceRegex)?.[0] || '';
+    const version = originalTitle.match(versionRegex)?.[0] || '';
 
-    formattedTitle = `${formattedTitle}.SZNJD-${releaseGroup}`;
+    const formattedTitle = `${showName}.${season}.${resolution}.${source}.${version}.SZNJD-${releaseGroup}`;
 
     return formattedTitle.trim();
   }
