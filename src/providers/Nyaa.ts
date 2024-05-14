@@ -84,6 +84,7 @@ export class Nyaa implements IProvider {
     const sourceRegex = /\b(?:BD(?:-?rip)?|BluRay|WEB(?:-?rip)?|HDTV(?:-?WEB)?|DVD(?:-?rip)?|JPBD|USBD|ITABD|R1\s?DVD|R2\s?DVD|R2J|R1J)\b/i;
     const audioRegex = /\b(FLAC|OPUS|AAC|AC3|EAC3)\b/i;
     const videoRegex = /\b(x264|x265|HEVC|AVC)\b/i;
+    const hi10Regex = /\b(Hi10|Hi10P)\b/i;
 
     const showName = originalTitle.match(showNameRegex)?.[1] || '';
     const season = originalTitle.match(seasonRegex)?.[0] || '';
@@ -91,6 +92,7 @@ export class Nyaa implements IProvider {
     const source = originalTitle.match(sourceRegex)?.[0] || '';
     const audioType = originalTitle.match(audioRegex)?.[0] || '';
     let videoType = originalTitle.match(videoRegex)?.[0] || '';
+    const hi10 = originalTitle.match(hi10Regex)?.[0] || '';
 
     // Handle different video types
     switch (videoType.toUpperCase()) {
@@ -104,7 +106,18 @@ export class Nyaa implements IProvider {
         break;
     }
 
-    const formattedTitle = `${showName} ${season} ${resolution} ${source} ${audioType.toUpperCase()} ${videoType.toLowerCase()} SZNJD-${releaseGroup}`;
+    let formattedTitle = `${showName} ${season} ${resolution} ${source} ${audioType.toUpperCase()}${videoType.toLowerCase()}`;
+
+    // Add Hi10 if present
+    if (hi10.toUpperCase() === 'HI10' || hi10.toUpperCase() === 'HI10P') {
+      if (videoType.toUpperCase() === 'X264') {
+        formattedTitle += ' 10bit';
+      } else {
+        formattedTitle += ` x264 10bit`;
+      }
+    }
+
+    formattedTitle += ` SZNJD-${releaseGroup}`;
 
     return formattedTitle.trim();
   }
