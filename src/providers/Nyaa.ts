@@ -83,14 +83,13 @@ export class Nyaa implements IProvider {
     const resolutionRegex = /\b(?<!264|265)(?:(\d{3,4}x\d{3,4})|([1-9]\d{2,3}p))\b/;
     const sourceRegex = /\b(?:BD(?:-?rip)?|BluRay|WEB(?:-?rip)?|HDTV(?:-?WEB)?|DVD(?:-?rip)?|JPBD|USBD|ITABD|R1\s?DVD|R2\s?DVD|R2J|R1J)\b/i;
     const versionRegex = /\bv[0-4]\b/i;
-    const szenjdReleaseGroupRegex = /SZNJD-([^\s]+)/i;
 
-    let formattedTitle = `${originalTitle.match(showNameRegex)?.[1] || ''} ${originalTitle.match(seasonRegex)?.[0] || ''} ${originalTitle.match(resolutionRegex)?.[0] || ''} ${originalTitle.match(sourceRegex)?.[0] || ''} ${originalTitle.match(versionRegex)?.[0] || ''}`;
+    let formattedTitle = `${originalTitle.match(showNameRegex)?.[1] || ''}.${originalTitle.match(seasonRegex)?.[0] || ''}.${originalTitle.match(resolutionRegex)?.[0] || ''}.${originalTitle.match(sourceRegex)?.[0] || ''}.${originalTitle.match(versionRegex)?.[0] || ''}`;
 
-    const szenjdReleaseGroupMatch = originalTitle.match(szenjdReleaseGroupRegex);
-    const szenjdReleaseGroup = szenjdReleaseGroupMatch ? szenjdReleaseGroupMatch[1] : '';
+    const releaseGroupMatch = originalTitle.match(releaseGroupRegex);
+    const releaseGroup = releaseGroupMatch ? releaseGroupMatch[1] : '';
 
-    formattedTitle = `${formattedTitle} - ${szenjdReleaseGroup} ${releaseGroup}`;
+    formattedTitle = `${formattedTitle}.SZNJD-${releaseGroup}`;
 
     return formattedTitle.trim();
   }
