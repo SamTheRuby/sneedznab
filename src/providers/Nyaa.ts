@@ -108,7 +108,7 @@ export class Nyaa implements IProvider {
         break;
     }
 
-    let formattedTitle = `${showName} ${season} ${resolution} ${source} ${audioType.toUpperCase()} ${videoType.toLowerCase()}`;
+    let formattedTitle = `${showName} ${season} ${resolution} ${source} ${audioType.toUpperCase()}  ${videoType.toLowerCase()}`;
 
     // Add Hi10 if present
     if (hi10.toUpperCase() === 'HI10' || hi10.toUpperCase() === 'HI10P') {
