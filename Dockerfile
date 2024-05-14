@@ -2,7 +2,7 @@ FROM oven/bun:0.7.2 as runner
 
 WORKDIR /app
 
-ENV GROUP=bun
+ENV GROUPS=bun,root  # Assign sneedex user to bun and root groups
 ENV USER=sneedex
 ENV UID=1001
 
@@ -14,6 +14,7 @@ RUN adduser \
   --shell "/sbin/nologin" \
   --no-create-home \
   --uid "${UID}" \
+  --ingroup "${GROUPS}" \  # Set the primary group to bun
   "${USER}"
 
 COPY package.json bun.lockb ./
@@ -24,7 +25,7 @@ COPY . .
 
 ENV NODE_ENV production
 
-USER sneedex
+USER sneedex  # Switch back to sneedex user
 
 EXPOSE 3000
 
