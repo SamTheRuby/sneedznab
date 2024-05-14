@@ -81,7 +81,7 @@ export class Nyaa implements IProvider {
     const showNameRegex = /\]\s*([^[(\]\[]+[^)\]\[])\s*(?:(?<!Season|[Ss]\d+|Arc)\(|\[|\])/;
     const seasonRegex = /(?:Season|S|Arc)\s*(\d+|Arc)/i;
     const resolutionRegex = /\b(?<!264|265)(?:(\d{3,4}x\d{3,4})|([1-9]\d{2,3}p))\b/;
-    const sourceRegex = /\b(?:BD(?:-?rip)?|BluRay|WEB(?:-?rip)?|HDTV(?:-?WEB)?|DVD(?:-?rip)?|JPBD|USBD|ITABD|R1\s?DVD|R2\s?DVD|R2J|R1J)\b/i;
+    const sourceRegex = /\b(?:BD|BluRay|WEB(?:-?rip)?|HDTV(?:-?WEB)?|DVD(?:-?rip)?|JPBD|USBD|ITABD|R1\s?DVD|R2\s?DVD|R2J|R1J)\b/i;
     const audioRegex = /\b(FLAC|OPUS|AAC|AC3|EAC3)\b/i;
     const videoRegex = /\b(x264|x265|HEVC|AVC)\b/i;
     const hi10Regex = /\b(Hi10|Hi10P)\b/i;
@@ -90,7 +90,9 @@ export class Nyaa implements IProvider {
     const showName = originalTitle.match(showNameRegex)?.[1] || '';
     const season = originalTitle.match(seasonRegex)?.[0] || '';
     const resolution = originalTitle.match(resolutionRegex)?.[0] || '';
-    const source = originalTitle.match(sourceRegex)?.[0] || '';
+    const source = originalTitle.replace(sourceRegex, (match: string) => {
+      return match === 'BD' ? 'BluRay' : match;
+    }) || '';
     const audioType = originalTitle.match(audioRegex)?.[0] || '';
     let videoType = originalTitle.match(videoRegex)?.[0] || '';
     const hi10 = originalTitle.match(hi10Regex)?.[0] || '';
@@ -108,7 +110,7 @@ export class Nyaa implements IProvider {
         break;
     }
 
-    let formattedTitle = `${showName} ${season} ${resolution} ${source} ${audioType.toUpperCase()}  ${videoType.toLowerCase()}`;
+    let formattedTitle = `${showName} ${season} ${resolution} ${source} ${audioType.toUpperCase()} ${videoType.toLowerCase()}`;
 
     // Add Hi10 if present
     if (hi10.toUpperCase() === 'HI10' || hi10.toUpperCase() === 'HI10P') {
