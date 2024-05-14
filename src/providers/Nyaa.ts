@@ -82,15 +82,29 @@ export class Nyaa implements IProvider {
     const seasonRegex = /(?:Season|S|Arc)\s*(\d+|Arc)/i;
     const resolutionRegex = /\b(?<!264|265)(?:(\d{3,4}x\d{3,4})|([1-9]\d{2,3}p))\b/;
     const sourceRegex = /\b(?:BD(?:-?rip)?|BluRay|WEB(?:-?rip)?|HDTV(?:-?WEB)?|DVD(?:-?rip)?|JPBD|USBD|ITABD|R1\s?DVD|R2\s?DVD|R2J|R1J)\b/i;
-    const versionRegex = /\bv[0-4]\b/i;
+    const audioRegex = /\b(FLAC|OPUS|AAC|AC3|EAC3)\b/i;
+    const videoRegex = /\b(x264|x265|HEVC|AVC)\b/i;
 
     const showName = originalTitle.match(showNameRegex)?.[1] || '';
     const season = originalTitle.match(seasonRegex)?.[0] || '';
     const resolution = originalTitle.match(resolutionRegex)?.[0] || '';
     const source = originalTitle.match(sourceRegex)?.[0] || '';
-    const version = originalTitle.match(versionRegex)?.[0] || '';
+    const audioType = originalTitle.match(audioRegex)?.[0] || '';
+    let videoType = originalTitle.match(videoRegex)?.[0] || '';
 
-    const formattedTitle = `${showName} ${season} ${resolution} ${source} ${version} SZNJD-${releaseGroup}`;
+    // Handle different video types
+    switch (videoType.toUpperCase()) {
+      case 'HEVC':
+        videoType = 'x265';
+        break;
+      case 'AVC':
+        videoType = 'x264';
+        break;
+      default:
+        break;
+    }
+
+    const formattedTitle = `${showName} ${season} ${resolution} ${source} ${audioType.toUpperCase()} ${videoType.toLowerCase()} SZNJD-${releaseGroup}`;
 
     return formattedTitle.trim();
   }
