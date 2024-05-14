@@ -90,7 +90,7 @@ export class Nyaa implements IProvider {
     const source = originalTitle.match(sourceRegex)?.[0] || '';
     const version = originalTitle.match(versionRegex)?.[0] || '';
 
-    const formattedTitle = `${showName}.${season}.${resolution}.${source}.${version}.SZNJD-${releaseGroup}`;
+    const formattedTitle = `${showName} ${season} ${resolution} ${source} ${version} SZNJD-${releaseGroup}`;
 
     return formattedTitle.trim();
   }
