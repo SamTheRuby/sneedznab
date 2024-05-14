@@ -90,7 +90,7 @@ export class Nyaa implements IProvider {
     const szenjdReleaseGroupMatch = originalTitle.match(szenjdReleaseGroupRegex);
     const szenjdReleaseGroup = szenjdReleaseGroupMatch ? szenjdReleaseGroupMatch[1] : '';
 
-    formattedTitle = `${formattedTitle} SZNJD-${szenjdReleaseGroup}`;
+    formattedTitle = `${formattedTitle} - ${szenjdReleaseGroup} ${releaseGroup}`;
 
     return formattedTitle.trim();
   }
