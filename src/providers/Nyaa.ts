@@ -86,7 +86,6 @@ export class Nyaa implements IProvider {
 
     let formattedTitle = `${originalTitle.match(showNameRegex)?.[1] || ''}.${originalTitle.match(seasonRegex)?.[0] || ''}.${originalTitle.match(resolutionRegex)?.[0] || ''}.${originalTitle.match(sourceRegex)?.[0] || ''}.${originalTitle.match(versionRegex)?.[0] || ''}`;
 
-    const releaseGroupMatch = originalTitle.match(releaseGroupRegex);
     const releaseGroup = releaseGroupMatch ? releaseGroupMatch[1] : '';
 
     formattedTitle = `${formattedTitle}.SZNJD-${releaseGroup}`;
@@ -152,4 +151,4 @@ export class Nyaa implements IProvider {
 
     return releases as ITorrentRelease[];
   }
-}
+  }
