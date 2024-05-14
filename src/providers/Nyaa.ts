@@ -85,6 +85,7 @@ export class Nyaa implements IProvider {
     const audioRegex = /\b(FLAC|OPUS|AAC|AC3|EAC3)\b/i;
     const videoRegex = /\b(x264|x265|HEVC|AVC)\b/i;
     const hi10Regex = /\b(Hi10|Hi10P)\b/i;
+    const dualAudioRegex = /\b(Dual[\s-]?Audio|EN\+JA)\b/i;
 
     const showName = originalTitle.match(showNameRegex)?.[1] || '';
     const season = originalTitle.match(seasonRegex)?.[0] || '';
@@ -93,6 +94,7 @@ export class Nyaa implements IProvider {
     const audioType = originalTitle.match(audioRegex)?.[0] || '';
     let videoType = originalTitle.match(videoRegex)?.[0] || '';
     const hi10 = originalTitle.match(hi10Regex)?.[0] || '';
+    const dualAudio = originalTitle.match(dualAudioRegex)?.[0] || '';
 
     // Handle different video types
     switch (videoType.toUpperCase()) {
@@ -106,7 +108,7 @@ export class Nyaa implements IProvider {
         break;
     }
 
-    let formattedTitle = `${showName} ${season} ${resolution} ${source} ${audioType.toUpperCase()}${videoType.toLowerCase()}`;
+    let formattedTitle = `${showName} ${season} ${resolution} ${source} ${audioType.toUpperCase()} ${videoType.toLowerCase()}`;
 
     // Add Hi10 if present
     if (hi10.toUpperCase() === 'HI10' || hi10.toUpperCase() === 'HI10P') {
@@ -115,6 +117,11 @@ export class Nyaa implements IProvider {
       } else {
         formattedTitle += ` x264 10bit`;
       }
+    }
+
+    // Add Dual-Audio if present
+    if (dualAudio.toUpperCase() === 'DUAL-AUDIO' || dualAudio.toUpperCase() === 'EN+JA') {
+      formattedTitle += ' Dual-Audio';
     }
 
     formattedTitle += ` SZNJD-${releaseGroup}`;
