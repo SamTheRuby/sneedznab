@@ -26,8 +26,8 @@
     "hono": "3.3.4",
     "lru-cache": "7.18.3",
     "picocolors": "1.0.0",
-    "xlsx": "^0.16.10", // Add xlsx dependency
-    "csv-parser": "^3.1.0" // Add csv-parser dependency
+    "xlsx": "^0.16.10",
+    "csv-parser": "^3.1.0"
   },
   "devDependencies": {
     "@types/eslint": "8.44.2",
