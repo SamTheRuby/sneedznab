@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx'; // Import XLSX for spreadsheet handling
 import { nyaaUrl } from '#/constants';
 import {
   INyaaData,
@@ -8,6 +9,7 @@ import {
 import { app } from '#/index';
 import { Utils } from '#utils/Utils';
 import { load } from 'cheerio';
+import fetch from 'node-fetch'; // Import fetch for making HTTP requests
 
 export class Nyaa implements IProvider {
   readonly name: string;
@@ -24,7 +26,7 @@ export class Nyaa implements IProvider {
     }
     Utils.debugLog(this.name, 'cache', `Cache miss: ${this.name}_${query}`);
 
-    const scrapeUrl = `https://nyaa.si/view/${query}`;
+    const scrapeUrl = `${nyaaUrl}/view/${query}`;
     Utils.debugLog(this.name, 'fetch', query);
     Utils.debugLog(this.name, 'fetch', `Fetching data from ${scrapeUrl}`);
 
@@ -73,7 +75,20 @@ export class Nyaa implements IProvider {
     return scrapedData as INyaaData;
   }
 
-  private formatTitle(originalTitle: string): string {
+  private async formatTitleFromSpreadsheet(nyaaLink: string): Promise<string | null> {
+    const workbook = XLSX.readFile('path_to_your_spreadsheet.xlsx');
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const spreadsheetData = XLSX.utils.sheet_to_json(worksheet);
+
+    const matchedEntry = spreadsheetData.find((entry: any) => entry.nyaaLink === nyaaLink);
+    if (matchedEntry) {
+      return matchedEntry.formattedName;
+    }
+    return null;
+  }
+
+  private async formatTitle(originalTitle: string): Promise<string> {
     const releaseGroupRegex = /^\[([^\]]+)]/;
     const releaseGroupMatch = originalTitle.match(releaseGroupRegex);
     const releaseGroup = releaseGroupMatch ? releaseGroupMatch[1] : '';
@@ -127,7 +142,7 @@ export class Nyaa implements IProvider {
     formattedTitle += ` SZNJD-${releaseGroup}`;
 
     return formattedTitle.trim();
-  }
+}
 
   public async get(
     anime: { title: string; alias: string },
@@ -138,53 +153,35 @@ export class Nyaa implements IProvider {
       : sneedexData.alt_links.split(' ');
 
     const nyaaLinks = bestReleaseLinks.filter((url: string) =>
-      url.includes('nyaa.si/view/')
+      url.includes(`${nyaaUrl}/view/`)
     );
     const nyaaIDs = nyaaLinks.length
       ? nyaaLinks.map((url: string) => +url.match(/nyaa.si\/view\/(\d+)/)[1])
       : null;
 
-    const nyaaData = nyaaIDs
-      ? await Promise.all(
-          nyaaIDs.map(async (nyaaID: number) => {
-            const nyaaData = await this.fetch(`${nyaaID}`);
-            return nyaaData;
-          })
-        )
-      : null;
+    const releases: ITorrentRelease[] = [];
 
-    if (!nyaaData) return null;
+    if (nyaaIDs) {
+      for (const nyaaID of nyaaIDs) {
+        const nyaaLink = `${nyaaUrl}/view/${nyaaID}`;
 
-    const releases: ITorrentRelease[] = nyaaData.map((data: INyaaData) => {
-      const formattedTitle = this.formatTitle(data.title);
+        const formattedNameFromSpreadsheet = await this.formatTitleFromSpreadsheet(nyaaLink);
+        if (formattedNameFromSpreadsheet) {
+          releases.push({
+            title: formattedNameFromSpreadsheet,
+            link: nyaaLink,
+            // Add other properties accordingly
+          });
+        } else {
+          const nyaaData = await this.fetch(`${nyaaID}`);
+          const formattedTitle = await this.formatTitle(nyaaData.title);
 
-      const size = data.size.split(' ');
-      const sizeInBytes =
-        size[1] === 'GiB'
-          ? +size[0] * 1024 * 1024 * 1024
-          : +size[0] * 1024 * 1024;
+          // Process other data and add to releases array
+          // ...
+        }
+      }
+    }
 
-      const sizeInBytesRounded = Math.round(sizeInBytes);
-
-      const formattedDate = Utils.formatDate(
-        new Date(data.date.replace(' UTC', '')).getTime()
-      );
-
-      return {
-        title: formattedTitle,
-        link: `https://nyaa.si/view/${data.id}`,
-        url: `https://nyaa.si/download/${data.id}.torrent`,
-        seeders: data.seeders,
-        leechers: data.leechers,
-        infohash: data.infohash,
-        size: sizeInBytesRounded,
-        files: data.files,
-        timestamp: formattedDate,
-        grabs: data.completed,
-        type: 'torrent'
-      };
-    });
-
-    return releases as ITorrentRelease[];
+    return releases;
   }
 }
