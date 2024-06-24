@@ -27,7 +27,7 @@ ENV NODE_ENV production
 USER root
 
 # Install required packages
-RUN apt-get update && apt-get install -y nano curl wget git
+RUN apt-get update && apt-get install -y nano curl wget git htop
 
 # Grant root access to sneedex user
 RUN echo "sneedex ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
