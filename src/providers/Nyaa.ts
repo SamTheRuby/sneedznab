@@ -1,20 +1,17 @@
-import * as XLSX from 'xlsx'; // Import XLSX for spreadsheet handling
-import { nyaaUrl } from '#/constants';
-import {
-  INyaaData,
-  IProvider,
-  ITorrentRelease,
-  ISneedexRelease
-} from '#interfaces/index';
-import { app } from '#/index';
-import { Utils } from '#utils/Utils';
+import * as fs from 'fs';
+import fetch from 'node-fetch';
 import { load } from 'cheerio';
-import fetch from 'node-fetch'; // Import fetch for making HTTP requests
+import { Utils } from '#utils/Utils';
+import { app } from '#/index';
+import { INyaaData, IProvider, ITorrentRelease, ISneedexRelease } from '#interfaces/index';
 
 export class Nyaa implements IProvider {
   readonly name: string;
+  private overrideList: Record<string, string> = {};
+
   constructor() {
     this.name = 'Nyaa';
+    this.loadOverrides();
   }
 
   private async fetch(query: string): Promise<INyaaData> {
@@ -26,115 +23,88 @@ export class Nyaa implements IProvider {
     }
     Utils.debugLog(this.name, 'cache', `Cache miss: ${this.name}_${query}`);
 
-    const scrapeUrl = `${nyaaUrl}/view/${query}`;
+    const scrapeUrl = `https://nyaa.si/view/${query}`;
     Utils.debugLog(this.name, 'fetch', query);
     Utils.debugLog(this.name, 'fetch', `Fetching data from ${scrapeUrl}`);
 
-    const html = await fetch(scrapeUrl).then(res => {
-      if (!res.ok) throw new Error(res.statusText);
-      return res.text();
-    });
+    const response = await fetch(scrapeUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${scrapeUrl}: ${response.statusText}`);
+    }
+    const html = await response.text();
 
     const $ = load(html);
 
-    const scrapedData = {
-      title: $('body > div > div:nth-child(1) > div.panel-heading > h3')
-        .text()
-        .trim(),
+    const scrapedData: INyaaData = {
+      title: $('div.panel-heading > h3').text().trim(),
       date: $('div.row:nth-child(1) > div:nth-child(4)').text().trim(),
-      seeders: +$(
-        'div.row:nth-child(2) > div:nth-child(4) > span:nth-child(1)'
-      )
-        .text()
-        .trim(),
-      leechers: +$(
-        'div.row:nth-child(3) > div:nth-child(4) > span:nth-child(1)'
-      )
-        .text()
-        .trim(),
+      seeders: +$('div.row:nth-child(2) > div:nth-child(4) > span:nth-child(1)').text().trim(),
+      leechers: +$('div.row:nth-child(3) > div:nth-child(4) > span:nth-child(1)').text().trim(),
       size: $('div.row:nth-child(4) > div:nth-child(2)').text().trim(),
       completed: +$('div.row:nth-child(4) > div:nth-child(4)').text().trim(),
-      infohash: $(
-        'div.row:nth-child(5) > div:nth-child(2) > kbd:nth-child(1)'
-      )
-        .text()
-        .trim(),
-      files: $(
-        '.torrent-file-list > ul:nth-child(1) > li:nth-child(1) > ul:nth-child(2)'
-      ).find('li').length,
+      infohash: $('div.row:nth-child(5) > div:nth-child(2) > kbd:nth-child(1)').text().trim(),
+      files: $('.torrent-file-list > ul:nth-child(1) > li').length,
       id: +query
     };
 
-    Utils.debugLog(
-      this.name,
-      'fetch',
-      `Fetched data, caching ${this.name}_${query}`
-    );
+    Utils.debugLog(this.name, 'fetch', `Fetched data, caching ${this.name}_${query}`);
     await app.cache.set(`${this.name}_${query}`, scrapedData);
 
-    return scrapedData as INyaaData;
+    return scrapedData;
   }
 
-  private async formatTitleFromSpreadsheet(nyaaLink: string): Promise<string | null> {
-    const workbook = XLSX.readFile('path_to_your_spreadsheet.xlsx');
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    const spreadsheetData = XLSX.utils.sheet_to_json(worksheet);
-
-    const matchedEntry = spreadsheetData.find((entry: any) => entry.nyaaLink === nyaaLink);
-    if (matchedEntry) {
-      return matchedEntry.formattedName;
+  private loadOverrides(): void {
+    try {
+      const data = fs.readFileSync('/app/src/providers/overrides.json', 'utf8');
+      this.overrideList = JSON.parse(data);
+    } catch (error) {
+      console.error('Error loading overrides:', error);
     }
-    return null;
   }
 
-  private async formatTitle(originalTitle: string): Promise<string> {
-    const releaseGroupRegex = /^\[([^\]]+)]/;
-    const releaseGroupMatch = originalTitle.match(releaseGroupRegex);
+  private formatTitle(originalTitle: string): string {
+    const patterns = {
+      releaseGroup: /\[([^\]]+)]/,
+      showName: /\]\s*([^[(\]\[]+[^)\]\[])\s*(?:(?<!Season|[Ss]\d+|Arc)\(|\[|\])/,
+      season: /(?:Season|S|Arc)\s*(\d+|Arc)/i,
+      resolution: /\b(?<!264|265)(?:(\d{3,4}x\d{3,4})|([1-9]\d{2,3}p))\b/,
+      source: /\b(?:BD(?:-?rip)?|BluRay|WEB(?:-?rip)?|HDTV(?:-?WEB)?|DVD(?:-?rip)?|JPBD|USBD|ITABD|R1\s?DVD|R2\s?DVD|R2J|R1J)\b/i,
+      audio: /\b(FLAC|OPUS|AAC|AC3|EAC3)\b/i,
+      video: /\b(x264|x265|HEVC|AVC)\b/i,
+      hi10: /\b(Hi10|Hi10P)\b/i,
+      dualAudio: /\b(Dual[\s-]?Audio|EN\+JA)\b/i
+    };
+
+    const releaseGroupMatch = originalTitle.match(patterns.releaseGroup);
     const releaseGroup = releaseGroupMatch ? releaseGroupMatch[1] : '';
+    const showNameMatch = originalTitle.match(patterns.showName);
+    const showName = showNameMatch ? showNameMatch[1] : '';
+    const seasonMatch = originalTitle.match(patterns.season);
+    const season = seasonMatch ? seasonMatch[0] : '';
+    const resolutionMatch = originalTitle.match(patterns.resolution);
+    const resolution = resolutionMatch ? resolutionMatch[0] : '';
+    const sourceMatch = originalTitle.match(patterns.source);
+    const source = sourceMatch && sourceMatch[0].toUpperCase() === 'BD' ? 'BluRay' : (sourceMatch ? sourceMatch[0] : '');
+    const audioTypeMatch = originalTitle.match(patterns.audio);
+    const audioType = audioTypeMatch ? audioTypeMatch[0].toUpperCase() : '';
+    let videoType = (originalTitle.match(patterns.video) || [''])[0];
+    const hi10Match = originalTitle.match(patterns.hi10);
+    const hi10 = hi10Match ? hi10Match[0] : '';
+    const dualAudioMatch = originalTitle.match(patterns.dualAudio);
+    const dualAudio = dualAudioMatch ? dualAudioMatch[0] : '';
 
-    const showNameRegex = /\]\s*([^[(\]\[]+[^)\]\[])\s*(?:(?<!Season|[Ss]\d+|Arc)\(|\[|\])/;
-    const seasonRegex = /(?:Season|S|Arc)\s*(\d+|Arc)/i;
-    const resolutionRegex = /\b(?<!264|265)(?:(\d{3,4}x\d{3,4})|([1-9]\d{2,3}p))\b/;
-    const sourceRegex = /\b(?:BD(?:-?rip)?|BluRay|WEB(?:-?rip)?|HDTV(?:-?WEB)?|DVD(?:-?rip)?|JPBD|USBD|ITABD|R1\s?DVD|R2\s?DVD|R2J|R1J)\b/i;
-    const audioRegex = /\b(FLAC|OPUS|AAC|AC3|EAC3)\b/i;
-    const videoRegex = /\b(x264|x265|HEVC|AVC)\b/i;
-    const hi10Regex = /\b(Hi10|Hi10P)\b/i;
-    const dualAudioRegex = /\b(Dual[\s-]?Audio|EN\+JA)\b/i;
-
-    const showName = originalTitle.match(showNameRegex)?.[1] || '';
-    const season = originalTitle.match(seasonRegex)?.[0] || '';
-    const resolution = originalTitle.match(resolutionRegex)?.[0] || '';
-    const source = originalTitle.match(sourceRegex)?.[0]?.toUpperCase() === 'BD' ? 'BluRay' : originalTitle.match(sourceRegex)?.[0] || '';
-    const audioType = originalTitle.match(audioRegex)?.[0] || '';
-    let videoType = originalTitle.match(videoRegex)?.[0] || '';
-    const hi10 = originalTitle.match(hi10Regex)?.[0] || '';
-    const dualAudio = originalTitle.match(dualAudioRegex)?.[0] || '';
-
-    // Handle different video types
-    switch (videoType.toUpperCase()) {
-      case 'HEVC':
-        videoType = 'x265';
-        break;
-      case 'AVC':
-        videoType = 'x264';
-        break;
-      default:
-        break;
+    if (videoType.toUpperCase() === 'HEVC') {
+      videoType = 'x265';
+    } else if (videoType.toUpperCase() === 'AVC') {
+      videoType = 'x264';
     }
 
-    let formattedTitle = `${showName} ${season} ${resolution} ${source} ${audioType.toUpperCase()}  ${videoType.toLowerCase()}`;
+    let formattedTitle = `${showName} ${season} ${resolution} ${source} ${audioType} ${videoType.toLowerCase()}`;
 
-    // Add Hi10 if present
     if (hi10.toUpperCase() === 'HI10' || hi10.toUpperCase() === 'HI10P') {
-      if (videoType.toUpperCase() === 'X264') {
-        formattedTitle += ' 10bit';
-      } else {
-        formattedTitle += ` x264 10bit`;
-      }
+      formattedTitle += ` x264 10bit`;
     }
 
-    // Add Dual-Audio if present
     if (dualAudio.toUpperCase() === 'DUAL-AUDIO' || dualAudio.toUpperCase() === 'EN+JA') {
       formattedTitle += ' Dual-Audio';
     }
@@ -142,45 +112,37 @@ export class Nyaa implements IProvider {
     formattedTitle += ` SZNJD-${releaseGroup}`;
 
     return formattedTitle.trim();
-}
+  }
 
-  public async get(
-    anime: { title: string; alias: string },
-    sneedexData: ISneedexRelease
-  ): Promise<ITorrentRelease[]> {
-    const bestReleaseLinks = sneedexData.best_links.length
-      ? sneedexData.best_links.split(' ')
-      : sneedexData.alt_links.split(' ');
+  public async get(anime: { title: string; alias: string }, sneedexData: ISneedexRelease): Promise<ITorrentRelease[]> {
+    const bestReleaseLinks = sneedexData.best_links.length ? sneedexData.best_links.split(' ') : sneedexData.alt_links.split(' ');
+    const nyaaIDs = bestReleaseLinks.map(url => +url.match(/nyaa.si\/view\/(\d+)/)?.[1]).filter(Boolean);
 
-    const nyaaLinks = bestReleaseLinks.filter((url: string) =>
-      url.includes(`${nyaaUrl}/view/`)
-    );
-    const nyaaIDs = nyaaLinks.length
-      ? nyaaLinks.map((url: string) => +url.match(/nyaa.si\/view\/(\d+)/)[1])
-      : null;
+    const nyaaData = await Promise.all(nyaaIDs.map(nyaaID => this.fetch(`${nyaaID}`)));
 
-    const releases: ITorrentRelease[] = [];
+    const releases: ITorrentRelease[] = nyaaData.map(data => {
+      const formattedTitle = this.overrideList[data.id] || this.formatTitle(data.title);
 
-    if (nyaaIDs) {
-      for (const nyaaID of nyaaIDs) {
-        const nyaaLink = `${nyaaUrl}/view/${nyaaID}`;
+      const size = data.size.split(' ');
+      const sizeInBytes = size[1] === 'GiB' ? +size[0] * 1024 * 1024 * 1024 : +size[0] * 1024 * 1024;
+      const sizeInBytesRounded = Math.round(sizeInBytes);
 
-        const formattedNameFromSpreadsheet = await this.formatTitleFromSpreadsheet(nyaaLink);
-        if (formattedNameFromSpreadsheet) {
-          releases.push({
-            title: formattedNameFromSpreadsheet,
-            link: nyaaLink,
-            // Add other properties accordingly
-          });
-        } else {
-          const nyaaData = await this.fetch(`${nyaaID}`);
-          const formattedTitle = await this.formatTitle(nyaaData.title);
+      const formattedDate = Utils.formatDate(new Date(data.date.replace(' UTC', '')).getTime());
 
-          // Process other data and add to releases array
-          // ...
-        }
-      }
-    }
+      return {
+        title: formattedTitle,
+        link: `https://nyaa.si/view/${data.id}`,
+        url: `https://nyaa.si/download/${data.id}.torrent`,
+        seeders: data.seeders,
+        leechers: data.leechers,
+        infohash: data.infohash,
+        size: sizeInBytesRounded,
+        files: data.files,
+        timestamp: formattedDate,
+        grabs: data.completed,
+        type: 'torrent'
+      };
+    });
 
     return releases;
   }
